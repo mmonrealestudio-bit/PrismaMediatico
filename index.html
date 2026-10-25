@@ -167,6 +167,25 @@ button{font:inherit; color:inherit}
 .showmore{margin-top:10px}
 .fclist.small .fcrow{opacity:.82; font-size:.9em}
 .edtag{font:600 .64rem var(--f-mono); text-transform:uppercase; letter-spacing:.08em; padding:2px 7px; border-radius:99px; background:var(--surface-2); color:var(--muted)}
+.edtag.today{background:none; border:1px solid var(--border)}
+.edtag.brieftag{background:var(--fg); color:var(--bg)}
+.bdate{display:block; font:500 .62rem var(--f-mono); text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:3px}
+.obr{font:600 .6rem var(--f-mono); font-style:normal; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); border:1px solid var(--border); border-radius:99px; padding:0 5px; vertical-align:1px}
+.briefs{margin-top:34px}
+.briefs-h h2{display:flex; align-items:baseline; gap:8px; margin:0; font-family:var(--f-display); font-size:1.35rem; letter-spacing:-.02em}
+.briefs-h h2 span{font:500 .75rem var(--f-mono); color:var(--muted)}
+.briefs-h p{margin:4px 0 12px; color:var(--muted); font-size:.88rem}
+.blist{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 22px; border-top:1px solid var(--border)}
+.brow{display:grid; grid-template-columns:minmax(0,1fr) 64px; grid-template-areas:"meta cov" "tl cov"; gap:3px 12px; align-items:center; text-align:left; background:none; border:0; border-bottom:1px solid var(--border); padding:11px 2px; color:var(--fg); cursor:pointer; font:inherit}
+.brow:hover{background:var(--surface)}
+.brow .bmeta{grid-area:meta; display:flex; flex-wrap:wrap; gap:6px; align-items:center; font:500 .64rem var(--f-mono); text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
+.brow .bmeta .blind,.brow .bmeta .fc{font-size:.6rem; padding:1px 6px}
+.brow .btl{grid-area:tl; font-weight:600; font-size:.95rem; line-height:1.3}
+.brow .bcov{grid-area:cov; display:flex; flex-direction:column; align-items:stretch; gap:4px; text-align:right}
+.brow .bcov small{font:500 .62rem var(--f-mono); color:var(--muted)}
+@media (max-width:720px){ .blist{grid-template-columns:minmax(0,1fr)} }
+.sheet .banner.slim{aspect-ratio:auto; height:52px; background:var(--surface-2)}
+
 .empty{color:var(--muted); font-size:.92rem; padding:20px; border:1px dashed var(--border); border-radius:14px}
 
 /* sheet */
@@ -348,10 +367,10 @@ EDITIONS.forEach(function(ed, n){
   });
   (ed.checks || []).forEach(function(c){ c.date = ed.date; c.uid = (n ? ed.date + '-' : '') + c[5]; c.old = n > 0; });
 });
-var STORIES = ED.stories, CHECKS = ED.checks || [];
+var STORIES = ED.stories.filter(function(s){ return !s.brief; }), BRIEFS = ED.stories.filter(function(s){ return s.brief; }), CHECKS = ED.checks || [];
 var OLD = [], OLDCHECKS = [];
 EDITIONS.slice(1).forEach(function(ed){ OLD = OLD.concat(ed.stories); OLDCHECKS = OLDCHECKS.concat(ed.checks || []); });
-var ALL = STORIES.concat(OLD);
+var ALL = STORIES.concat(BRIEFS, OLD);
 var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 var DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 function fdate(iso, long){ var p = iso.split('-'), d = new Date(+p[0], +p[1]-1, +p[2]);
@@ -408,7 +427,7 @@ function media(s){
 function gnews(q, dom, d){ return 'https://news.google.com/search?q=' + encodeURIComponent(q + ' site:' + dom + ' when:' + d + 'd') + '&hl=es&gl=ES&ceid=ES:es'; }
 function tags(s){
   var b = blind(s), f = nChecks(s);
-  return '<div class="tagrow">'+(s.old ? '<span class="edtag">Edición del '+fdate(s.date)+'</span>' : '')+'<span class="tag">'+esc(s.tag)+'</span>' + (b ? '<span class="blind '+b.cls+'">'+b.txt+'</span>' : '') + (f ? '<span class="fc">'+f+(f===1?' bulo desmentido':' bulos desmentidos')+'</span>' : '') + '</div>';
+  return '<div class="tagrow">'+'<span class="edtag'+(s.old ? '' : ' today')+'">'+(s.old ? 'Edición del ' : '')+fdate(s.date)+'</span>'+(s.brief ? '<span class="edtag brieftag">Breve</span>' : '')+'<span class="tag">'+esc(s.tag)+'</span>' + (b ? '<span class="blind '+b.cls+'">'+b.txt+'</span>' : '') + (f ? '<span class="fc">'+f+(f===1?' bulo desmentido':' bulos desmentidos')+'</span>' : '') + '</div>';
 }
 function card(s, lead){
   if (lead) return '<button class="lead" data-open="'+s.uid+'">'+media(s)+'<div class="body">'+tags(s)+'<h2>'+esc(s.title)+'</h2><p>'+esc(s.dek)+'</p><div>'+strip(s)+'</div></div></button>';
@@ -419,7 +438,7 @@ function mini(s){ var k = sideCounts(s), n = Math.max(k.n,1), L = k.got.l/n*100,
 var OLDMAX = 6;
 function older(list, label){
   if (!list.length) return '';
-  var rows = list.map(function(s, i){ return '<button class="oldrow'+(i >= OLDMAX ? ' more' : '')+'" data-open="'+s.uid+'"><span class="od">'+fdate(s.date)+'</span><span class="ot">'+esc(s.title)+'</span>'+mini(s)+'</button>'; }).join('');
+  var rows = list.map(function(s, i){ return '<button class="oldrow'+(i >= OLDMAX ? ' more' : '')+'" data-open="'+s.uid+'"><span class="od">'+fdate(s.date)+'</span><span class="ot">'+(s.brief ? '<em class="obr">Breve</em> ' : '')+esc(s.title)+'</span>'+mini(s)+'</button>'; }).join('');
   return '<section class="older"><h3>'+(label || 'Días anteriores')+'<span>'+list.length+'</span></h3><div class="oldlist">'+rows+'</div>'+(list.length > OLDMAX ? '<button class="linkbtn showmore" data-more>Ver las '+list.length+'</button>' : '')+'</section>';
 }
 var POLLS = (EDITIONS.filter(function(e){ return e.polls; })[0] || {}).polls || null;
@@ -445,17 +464,23 @@ function pollsBlock(compact){
 function blindBlock(list){
   if (!list.length) return '';
   return '<section class="blinds"><div class="blinds-h"><h2>Puntos ciegos</h2><p>Noticias que un lado del espectro cubre y el otro casi ignora.</p></div><div class="bgrid">' +
-    list.map(function(s){ var b = blind(s); return '<button class="bcard" data-open="'+s.uid+'">'+media(s)+'<div class="bbody"><span class="blind '+b.cls+'">'+b.txt+'</span><h4>'+esc(s.title)+'</h4>'+mini(s)+'</div></button>'; }).join('') + '</div></section>';
+    list.map(function(s){ var b = blind(s); return '<button class="bcard" data-open="'+s.uid+'">'+media(s)+'<div class="bbody"><span class="bdate">'+fdate(s.date)+'</span><span class="blind '+b.cls+'">'+b.txt+'</span><h4>'+esc(s.title)+'</h4>'+mini(s)+'</div></button>'; }).join('') + '</div></section>';
+}
+function briefsBlock(list, title){
+  if (!list.length) return '';
+  return '<section class="briefs"><div class="briefs-h"><h2>'+(title || 'Breves del día')+'<span>'+list.length+'</span></h2><p>Más noticias de hoy, con quién las cubre y cómo las enfoca cada bloque, sin la lectura completa de tres piezas.</p></div><div class="blist">' +
+    list.map(function(s){ var k = sideCounts(s), b = blind(s), f = nChecks(s);
+      return '<button class="brow" data-open="'+s.uid+'"><span class="bmeta"><span class="bd">'+fdate(s.date)+'</span><span class="bt">'+esc(s.tag.split(' · ')[0])+'</span>'+(b ? '<span class="blind '+b.cls+'">'+b.txt+'</span>' : '')+(f ? '<span class="fc">'+f+(f===1?' bulo':' bulos')+'</span>' : '')+'</span><span class="btl">'+esc(s.title)+'</span><span class="bcov">'+mini(s)+'<small>'+k.n+' de '+(k.tot.l+k.tot.c+k.tot.r)+'</small></span></button>'; }).join('') + '</div></section>';
 }
 function grid(list){ return list.length ? '<div class="grid">' + list.map(function(s){ return card(s); }).join('') + '</div>' : '<p class="empty">Hoy no hay noticias en esta sección.</p>'; }
 
 /* tabs */
 var tabsEl = document.getElementById('tabs'), view = document.getElementById('view');
 function countFor(id){
-  if (id === 'ciegos') return STORIES.filter(blind).length;
+  if (id === 'ciegos') return STORIES.concat(BRIEFS).filter(blind).length;
   if (id === 'bulos') return CHECKS.length;
   if (id === 'portada' || id === 'medios') return '';
-  return STORIES.filter(function(s){ return s.sec.indexOf(id) > -1; }).length;
+  return STORIES.concat(BRIEFS).filter(function(s){ return s.sec.indexOf(id) > -1; }).length;
 }
 tabsEl.innerHTML = SECTIONS.map(function(sc, i){ var n = countFor(sc.id);
   return '<button class="tab'+(sc.id==='ciegos'||sc.id==='medios'?' sep':'')+(sc.id==='elec'?' hot':'')+'" role="tab" data-view="'+sc.id+'" aria-selected="'+(i===0)+'">'+sc.name+(n!=='' ? '<span class="n">'+n+'</span>' : '')+'</button>'; }).join('');
@@ -468,9 +493,9 @@ function render(id){
   if (id === 'portada'){
     var main = STORIES.filter(function(s){ return !blind(s); }), bs = STORIES.filter(blind);
     if (!main.length){ main = STORIES.slice(); bs = []; }
-    view.innerHTML = card(main[0], true) + pollsBlock(true) + '<div class="section-h"><h2>Hoy en portada</h2><p>Toca una noticia para ver quién la cubre, cómo la cuenta cada bloque y qué han verificado.</p></div>' + grid(main.slice(1)) + blindBlock(bs) + older(OLD, 'Ediciones anteriores');
+    view.innerHTML = card(main[0], true) + pollsBlock(true) + '<div class="section-h"><h2>Hoy en portada</h2><p>Toca una noticia para ver quién la cubre, cómo la cuenta cada bloque y qué han verificado.</p></div>' + grid(main.slice(1)) + briefsBlock(BRIEFS) + blindBlock(bs) + older(OLD, 'Ediciones anteriores');
   } else if (id === 'ciegos'){
-    view.innerHTML = head + grid(STORIES.filter(blind)) + older(OLD.filter(blind));
+    view.innerHTML = head + grid(STORIES.filter(blind)) + briefsBlock(BRIEFS.filter(blind), 'Breves') + older(OLD.filter(blind));
   } else if (id === 'bulos'){
     var fcrow = function(c){ var s = byId(c.uid);
       return '<div class="fcrow"><div class="src">'+c[0]+'<small>'+(c.old ? fdate(c.date)+' · ' : '')+''+esc(s ? s.tag.split(' · ')[0] : '')+'</small></div><p>'+esc(c[2])+'</p><div class="meta"><span class="verdict '+c[3]+'">'+esc(c[4])+'</span><a class="linkbtn" href="'+gnews(c[6], c[1], 10)+'" target="_blank" rel="noopener">Ver la verificación ↗</a>'+(s ? '<button class="linkbtn" data-open="'+s.uid+'">Ver la noticia</button>' : '')+'</div></div>'; };
@@ -482,7 +507,7 @@ function render(id){
     drawSpectrum();
   } else {
     var inSec = function(s){ return s.sec.indexOf(id) > -1; };
-    view.innerHTML = head + (id === 'elec' ? pollsBlock() : '') + grid(STORIES.filter(inSec)) + older(OLD.filter(inSec));
+    view.innerHTML = head + (id === 'elec' ? pollsBlock() : '') + grid(STORIES.filter(inSec)) + briefsBlock(BRIEFS.filter(inSec), 'Breves') + older(OLD.filter(inSec));
   }
   window.scrollTo(0, 0);
 }
@@ -529,18 +554,19 @@ function openStory(id){
   }).join('');
   var frames = BLOCS.map(function(bl){ var t = s.framing[bl[0]] || ''; var none = /^Sin cobertura/.test(t);
     return '<div class="frame '+bl[0]+(none?' none':'')+'"><span class="who">'+bl[1]+'<small>'+OUTLETS.filter(function(o){return o[2]===bl[0];}).length+' medios'+'</small></span>'+frameBody(t)+'</div>'; }).join('');
-  var checks = s.verif.checks.map(function(c){ var url = gnews(s.q, CHECKDOM[c[0]], 10);
+  var V = s.verif || {pill:['neutral','Sin verificaciones'], text:'No hay verificaciones publicadas sobre esta noticia.', checks:[]};
+  var checks = V.checks.map(function(c){ var url = gnews(s.q, CHECKDOM[c[0]], 10);
     return '<li><span>'+(c[2] ? '<a href="'+url+'" target="_blank" rel="noopener">'+c[0]+' ↗</a>' : c[0])+'</span><span class="st'+(c[2]?' hit':'')+'">'+esc(c[1])+'</span></li>'; }).join('');
   root.innerHTML =
     '<div class="sheet-scrim" id="scrim"><article class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-title">' +
-      '<div class="banner">'+media(s).replace('class="media"','class="media" style="position:absolute;inset:0"')+'<button class="close" id="sh-close" aria-label="Cerrar">×</button></div>' +
-      '<div class="inner">'+tags(s)+'<h2 id="sh-title">'+esc(s.title)+'</h2><p class="dek">'+esc(s.dek)+'</p>' +
+      (s.brief ? '<div class="banner slim"><button class="close" id="sh-close" aria-label="Cerrar">×</button></div>' : '<div class="banner">'+media(s).replace('class="media"','class="media" style="position:absolute;inset:0"')+'<button class="close" id="sh-close" aria-label="Cerrar">×</button></div>') +
+      '<div class="inner">'+tags(s)+'<h2 id="sh-title">'+esc(s.title)+'</h2>'+(s.dek ? '<p class="dek">'+esc(s.dek)+'</p>' : '')+'' +
         '<div class="bigstrip">'+strip(s)+'</div>' +
         '<div class="sides"><div class="side l"><b>'+k.got.l+'/'+k.tot.l+'</b>izquierda</div><div class="side c"><b>'+k.got.c+'/'+k.tot.c+'</b>centro</div><div class="side r"><b>'+k.got.r+'/'+k.tot.r+'</b>derecha</div></div>' +
-        '<section class="layer"><div class="layer-head"><span class="layer-num">1</span><h3>Contraste y verificación de bulos</h3></div><span class="pill '+s.verif.pill[0]+'">'+esc(s.verif.pill[1])+'</span><p class="note">'+esc(s.verif.text)+'</p><ul class="checks">'+checks+'</ul></section>' +
+        '<section class="layer"><div class="layer-head"><span class="layer-num">1</span><h3>Contraste y verificación de bulos</h3></div><span class="pill '+V.pill[0]+'">'+esc(V.pill[1])+'</span><p class="note">'+esc(V.text)+'</p><ul class="checks">'+checks+'</ul></section>' +
         '<section class="layer"><div class="layer-head"><span class="layer-num">2</span><h3>Quién lo cubre <span class="h3-hint">· toca un medio para leer sus piezas ↗</span></h3></div><p class="note">En color, los medios que han publicado algo; el número es cuántas piezas. Cada nombre abre sus artículos sobre esta noticia en Google News.</p><div class="blocs">'+blocs+'</div></section>' +
         '<section class="layer"><div class="layer-head"><span class="layer-num">3</span><h3>Cómo lo cuenta cada bloque</h3></div><div class="framing">'+frames+'</div>'+(s.extra||'')+'</section>' +
-        (s.credit && !s.old ? '<p class="credit">Foto: '+esc(s.credit)+', vía Wikimedia Commons.</p>' : '<p class="credit">Imagen: diseño gráfico propio.</p>') +
+        (s.brief ? '<p class="credit">Breve: cobertura y encuadre a partir de los titulares de cada medio, sin lectura completa de tres piezas.</p>' : s.credit && !s.old ? '<p class="credit">Foto: '+esc(s.credit)+', vía Wikimedia Commons.</p>' : '<p class="credit">Imagen: diseño gráfico propio.</p>') +
       '</div></article></div>';
   root.querySelectorAll('.layer p.note').forEach(function(p){ var b = p.querySelector('b'); if (!b || !/Lectura completa/.test(b.textContent)) return;
     var rest = p.textContent.replace(b.textContent, '').trim().replace(/:\s*$/, '');
