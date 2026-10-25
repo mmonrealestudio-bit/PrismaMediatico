@@ -484,9 +484,13 @@ function countFor(id){
 }
 tabsEl.innerHTML = SECTIONS.map(function(sc, i){ var n = countFor(sc.id);
   return '<button class="tab'+(sc.id==='ciegos'||sc.id==='medios'?' sep':'')+(sc.id==='elec'?' hot':'')+'" role="tab" data-view="'+sc.id+'" aria-selected="'+(i===0)+'">'+sc.name+(n!=='' ? '<span class="n">'+n+'</span>' : '')+'</button>'; }).join('');
-tabsEl.addEventListener('click', function(e){ var t = e.target.closest('[data-view]'); if (t) render(t.dataset.view); });
+tabsEl.addEventListener('click', function(e){ var t = e.target.closest('[data-view]'); if (t) go(t.dataset.view); });
+/* historial: el gesto o botón «atrás» vuelve a la sección o cierra la noticia en vez de salir de la web */
+var curView = 'portada';
+function go(id){ if (id === curView) return; render(id); try { history.pushState({v:id}, '', location.pathname + location.search); } catch(e){} window.scrollTo(0, 0); }
 
 function render(id){
+  curView = id;
   tabsEl.querySelectorAll('.tab').forEach(function(t){ t.setAttribute('aria-selected', t.dataset.view === id ? 'true' : 'false'); });
   var sc = SECTIONS.filter(function(x){ return x.id === id; })[0];
   var head = sc.desc ? '<div class="section-h"><h2>'+sc.name+'</h2><p>'+sc.desc+'</p></div>' : '';
@@ -538,7 +542,7 @@ var rt; window.addEventListener('resize', function(){ clearTimeout(rt); rt = set
 /* detail sheet */
 var root = document.getElementById('sheet-root'), lastFocus = null;
 var CHECKDOM = {"Maldita.es":"maldita.es","Newtral":"newtral.es","EFE Verifica":"verifica.efe.com","Verificat":"verificat.cat"};
-function openStory(id){
+function openStory(id, fromHistory){
   var s = byId(id); if (!s) return;
   lastFocus = document.activeElement;
   var k = sideCounts(s);
@@ -577,17 +581,23 @@ function openStory(id){
   document.getElementById('sh-close').focus();
   document.getElementById('sh-close').addEventListener('click', closeStory);
   document.getElementById('scrim').addEventListener('click', function(e){ if (e.target.id === 'scrim') closeStory(); });
-  try { history.replaceState(null, '', '#' + id); } catch(e){}
+  if (!fromHistory){ try { history.pushState({v:curView, s:id}, '', '#' + id); } catch(e){} }
 }
-function closeStory(){ root.innerHTML = ''; document.body.style.overflow = ''; try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} if (lastFocus) lastFocus.focus(); }
+function closeUI(){ if (!root.innerHTML) return; root.innerHTML = ''; document.body.style.overflow = ''; if (lastFocus) lastFocus.focus(); }
+function closeStory(){ if (history.state && history.state.s){ history.back(); return; } closeUI(); try { history.replaceState({v:curView}, '', location.pathname + location.search); } catch(e){} }
+window.addEventListener('popstate', function(e){ var st = e.state || {}; var v = st.v || 'portada'; var h = (location.hash || '').slice(1); var sid = st.s || (byId(h) ? h : null);
+  if (v !== curView){ render(v); if (!sid) window.scrollTo(0, 0); }
+  if (sid) openStory(sid, true); else closeUI(); });
 document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && root.innerHTML) closeStory(); });
-view.addEventListener('click', function(e){ var g = e.target.closest('[data-goto]'); if (g){ render(g.dataset.goto); return; } var m = e.target.closest('[data-more]'); if (m){ m.parentNode.classList.add('open'); m.remove(); return; } var t = e.target.closest('[data-open]'); if (t) openStory(t.dataset.open); });
+view.addEventListener('click', function(e){ var g = e.target.closest('[data-goto]'); if (g){ go(g.dataset.goto); return; } var m = e.target.closest('[data-more]'); if (m){ m.parentNode.classList.add('open'); m.remove(); return; } var t = e.target.closest('[data-open]'); if (t) openStory(t.dataset.open); });
 document.getElementById('credits').innerHTML = '<b>Fotos de hoy (Wikimedia Commons):</b> ' + STORIES.filter(function(s){ return s.credit; }).map(function(s){ return esc(s.credit); }).join(' · ') + '.';
 document.getElementById('dateline').innerHTML = fdate(ED.date, true) + '<br>' + OUTLETS.length + ' medios · Campaña 29-N';
 document.getElementById('fecha-medida').textContent = fdate(ED.date, true).toLowerCase();
 
 render('portada');
-var h = (location.hash || '').slice(1); if (byId(h)) openStory(h);
+var h = (location.hash || '').slice(1);
+try { history.replaceState({v:'portada'}, '', location.pathname + location.search); } catch(e){}
+if (byId(h)) openStory(h);
 })();
 </script>
 </body>
