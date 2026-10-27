@@ -576,7 +576,10 @@ tabsEl.innerHTML = SECTIONS.map(function(sc, i){ var n = countFor(sc.id);
 tabsEl.addEventListener('click', function(e){ var t = e.target.closest('[data-view]'); if (t) go(t.dataset.view); });
 /* historial: el gesto o botón «atrás» vuelve a la sección o cierra la noticia en vez de salir de la web */
 var curView = 'portada';
-function go(id){ if (id === curView) return; render(id); try { history.pushState({v:id}, '', location.pathname + location.search); } catch(e){} window.scrollTo(0, 0); }
+try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch(e){}
+function H(){ return location.pathname + location.search; }
+function saveY(){ try { var st = history.state || {}; if (!st.s){ st = {v: st.v || curView, y: window.scrollY}; history.replaceState(st, '', location.href); } } catch(e){} }
+function go(id){ if (id === curView) return; saveY(); render(id); try { history.pushState({v:id, y:0}, '', H() + (id === 'portada' ? '' : '#sec-' + id)); } catch(e){} window.scrollTo(0, 0); }
 
 function render(id){
   curView = id;
@@ -629,7 +632,7 @@ function drawSpectrum(){
 var rt; window.addEventListener('resize', function(){ clearTimeout(rt); rt = setTimeout(drawSpectrum, 150); });
 
 /* detail sheet */
-var root = document.getElementById('sheet-root'), lastFocus = null;
+var root = document.getElementById('sheet-root'), lastFocus = null, openId = null;
 var CHECKDOM = {"Maldita.es":"maldita.es","Newtral":"newtral.es","EFE Verifica":"verifica.efe.com","Verificat":"verificat.cat"};
 function openStory(id, fromHistory){
   var s = byId(id); if (!s) return;
@@ -670,23 +673,32 @@ function openStory(id, fromHistory){
   document.getElementById('sh-close').focus();
   document.getElementById('sh-close').addEventListener('click', closeStory);
   document.getElementById('scrim').addEventListener('click', function(e){ if (e.target.id === 'scrim') closeStory(); });
-  if (!fromHistory){ try { history.pushState({v:curView, s:id}, '', '#' + id); } catch(e){} }
+  if (!fromHistory){ saveY(); try { history.pushState({v:curView, s:id}, '', H() + '#' + id); } catch(e){} }
+  openId = id;
 }
-function closeUI(){ if (!root.innerHTML) return; root.innerHTML = ''; document.body.style.overflow = ''; if (lastFocus) lastFocus.focus(); }
-function closeStory(){ if (history.state && history.state.s){ history.back(); return; } closeUI(); try { history.replaceState({v:curView}, '', location.pathname + location.search); } catch(e){} }
-window.addEventListener('popstate', function(e){ var st = e.state || {}; var v = st.v || 'portada'; var h = (location.hash || '').slice(1); var sid = st.s || (byId(h) ? h : null);
-  if (v !== curView){ render(v); if (!sid) window.scrollTo(0, 0); }
-  if (sid) openStory(sid, true); else closeUI(); });
+function closeUI(){ openId = null; if (!root.innerHTML) return; root.innerHTML = ''; document.body.style.overflow = ''; if (lastFocus) try { lastFocus.focus({preventScroll:true}); } catch(e){} }
+function closeStory(){ if (history.state && history.state.s){ history.back(); return; } closeUI(); try { history.replaceState({v:curView}, '', H() + (curView === 'portada' ? '' : '#sec-' + curView)); } catch(e){} }
+/* estado a partir del historial o, si se ha perdido (recarga, navegador de WhatsApp...), de la dirección */
+function fromURL(){ var st = history.state || {}, h = decodeURIComponent((location.hash || '').slice(1)), v = st.v, sid = st.s || null;
+  if (!sid && byId(h)) sid = h;
+  if (!v){ var m = /^sec-(.+)$/.exec(h); v = (m && SECTIONS.some(function(x){ return x.id === m[1]; })) ? m[1] : 'portada'; }
+  return {v: v, s: sid, y: st.y}; }
+function sync(){ var t = fromURL();
+  if (t.v !== curView) render(t.v);
+  if (t.s){ if (openId !== t.s) openStory(t.s, true); }
+  else { closeUI(); if (typeof t.y === 'number') { var y = t.y; window.scrollTo(0, y); setTimeout(function(){ window.scrollTo(0, y); }, 60); } } }
+window.addEventListener('popstate', sync);
+window.addEventListener('hashchange', sync);
+window.addEventListener('pageshow', function(e){ if (e.persisted) sync(); });
 document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && root.innerHTML) closeStory(); });
 view.addEventListener('click', function(e){ var g = e.target.closest('[data-goto]'); if (g){ go(g.dataset.goto); return; } var m = e.target.closest('[data-more]'); if (m){ m.parentNode.classList.add('open'); m.remove(); return; } var t = e.target.closest('[data-open]'); if (t) openStory(t.dataset.open); });
 document.getElementById('credits').innerHTML = '<b>Fotos de hoy (Wikimedia Commons):</b> ' + STORIES.filter(function(s){ return s.credit; }).map(function(s){ return esc(s.credit); }).join(' · ') + '.';
 document.getElementById('dateline').innerHTML = fdate(ED.date, true) + '<br>' + OUTLETS.length + ' medios · Campaña 29-N';
 document.getElementById('fecha-medida').textContent = fdate(ED.date, true).toLowerCase();
 
-render('portada');
-var h = (location.hash || '').slice(1);
-try { history.replaceState({v:'portada'}, '', location.pathname + location.search); } catch(e){}
-if (byId(h)) openStory(h);
+(function(){ var t = fromURL(); render(t.v);
+  try { history.replaceState({v:t.v, y:0}, '', H() + (t.v === 'portada' ? '' : '#sec-' + t.v)); } catch(e){}
+  if (t.s) openStory(t.s); })();
 })();
 </script>
 </body>
